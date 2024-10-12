@@ -1,0 +1,11 @@
+# ignore cmake
+app/.cxx/
+
+# ignore gradle build
+app/build/
+
+# ignore gradle cache
+.gradle/
+
+# ignore compiled shader files
+*.spv

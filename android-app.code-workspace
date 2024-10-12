@@ -1,0 +1,108 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"locale": "c",
+			"asset_manager.h": "c",
+			"android_native_app_glue.h": "c",
+			"ig_ivec2.h": "c",
+			"stdbool.h": "c",
+			"stdlib.h": "c",
+			"ig_window.h": "c",
+			"condition_variable": "c",
+			"mutex": "c",
+			"shared_mutex": "c",
+			"thread": "c",
+			"ignite.h": "c",
+			"cimgui.h": "c",
+			"ig_buffer.h": "c",
+			"string.h": "c",
+			"renderer.h": "c"
+		},
+		"C_Cpp.default.compileCommands": "${workspaceFolder}/app/.cxx/tools/debug/arm64-v8a/compile_commands.json"
+	},
+
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "clean",
+				"command": "py",
+				"type": "shell",
+				"args": [ "scripts/clean.py" ],
+				"problemMatcher": [],
+				"presentation": {
+					"reveal": "always",
+					"clear": true,
+					"focus": false,
+					"showReuseMessage": true
+				},
+			},
+			{
+				"label": "build",
+				"command": "gradle assembleDebug",
+				"type": "shell",
+				"args": [],
+				"problemMatcher": [],
+				"presentation": {
+					"reveal": "always",
+					"clear": true,
+					"focus": false,
+					"panel": "dedicated",
+					"showReuseMessage": true
+				},
+				"group": "build"
+			},
+			{
+				"label": "build install",
+				"command": "gradle installDebug",
+				"type": "shell",
+				"args": [],
+				"problemMatcher": [],
+				"presentation": {
+					"reveal": "always",
+					"clear": true,
+					"focus": false,
+					"panel": "dedicated",
+					"showReuseMessage": true
+				},
+				"group": "build"
+			},
+			{
+				"label": "clear logcat",
+				"command": "adb logcat -c",
+				"type": "shell",
+				"args": [],
+				"problemMatcher": [],
+				"presentation": {
+					"showReuseMessage": false,
+					"echo": false,
+					"reveal": "never",
+					"close": true
+				},
+				"group": "none"
+			},
+			{
+				"label": "open logcat",
+				"dependsOn": "clear logcat",
+				"command": "adb logcat iglog:I *:S *:E *:F VALIDATION:* -v raw",
+				"type": "shell",
+				"args": [],
+				"problemMatcher": [
+					"$tsc"
+				],
+				"presentation": {
+					"showReuseMessage": false,
+					"reveal": "always",
+					"panel": "dedicated",
+					"close": true
+				},
+				"group": "none"
+			}
+		]
+	}
+}
