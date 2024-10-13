@@ -1,11 +1,34 @@
 #include "rendering/renderer.h"
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "external/cimgui/cimgui.h"
+#include "external/mongoose/mongoose.h"
 
 static float now_ms(void) {
     struct timespec res;
     clock_gettime(CLOCK_MONOTONIC, &res);
     return 1000.0 * res.tv_sec + (float) res.tv_nsec / 1e6;
+}
+
+void connection_callback(struct mg_connection* connection, int ev, void* ev_data) {
+	switch (ev) {
+	case MG_EV_OPEN:
+		break;
+	case MG_EV_CONNECT:
+		mg_send(connection, "HELLO\n", 7);
+		break;
+	case MG_EV_ERROR:
+		IG_LOG("error = %s", (char*) ev_data);
+		break;
+	case MG_EV_READ:
+		IG_LOG("recv = %s", connection->recv.buf);
+		*((bool*) connection->fn_data) = false;
+		IG_LOG("closing connection");
+		break;
+	case MG_EV_CLOSE:
+		IG_LOG("closed connection");
+		*((bool*) connection->fn_data) = false;
+		break;
+	}
 }
 
 void android_main(struct android_app* state) {
@@ -14,6 +37,17 @@ void android_main(struct android_app* state) {
 	renderer* renderer = renderer_create(ctx, window);
 	ig_texture* sprite_sheet = ig_context_texture_create_from_file(ctx, "app/res/textures/sprite_sheet.png");
 	ImTextureID imgui_tex = igImplVulkan_AddTexture(ctx->nearest_sampler, sprite_sheet->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	struct mg_mgr mgr;
+	bool running = true;
+	mg_mgr_init(&mgr);
+	struct mg_connection* connection = mg_connect(&mgr, "tcp://192.168.2.35:1234", connection_callback, &running);
+	
+	while (running) {
+		mg_mgr_poll(&mgr, 1000);
+	}
+
+	mg_mgr_free(&mgr);
 
 	int fps = 0;
 	int fps_display = 0;
