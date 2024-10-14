@@ -1,11 +1,36 @@
 #include "rendering/renderer.h"
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "external/cimgui/cimgui.h"
+#include "external/mongoose/mongoose.h"
 
 static float now_ms(void) {
-    struct timespec res;
-    clock_gettime(CLOCK_MONOTONIC, &res);
-    return 1000.0 * res.tv_sec + (float) res.tv_nsec / 1e6;
+	struct timespec res;
+	clock_gettime(CLOCK_MONOTONIC, &res);
+	return 1000.0 * res.tv_sec + (float) res.tv_nsec / 1e6;
+}
+
+void ev_handle(struct mg_connection* c, int ev, void* ev_data) {
+	switch (ev) {
+	case MG_EV_OPEN:
+		*(uint64_t*) c->data = mg_millis() + 1500;
+		break;
+	case MG_EV_POLL:
+		if (mg_millis() > *(uint64_t*) c->data && (c->is_connecting || c->is_resolving)) {
+			mg_error(c, "connection timed out");
+		}
+		break;
+	case MG_EV_WRITE:
+		*(bool*) c->fn_data = false;
+	break;
+	case MG_EV_CONNECT:
+		mg_send(c, "HELLO\n", 6);
+		IG_LOG("connection successful, disconnecting.");
+		break;
+	case MG_EV_ERROR:
+		IG_LOG("error: %s", (char*) ev_data);
+		*(bool*) c->fn_data = false;
+	break;
+	}
 }
 
 void android_main(struct android_app* state) {
@@ -14,6 +39,17 @@ void android_main(struct android_app* state) {
 	renderer* renderer = renderer_create(ctx, window);
 	ig_texture* sprite_sheet = ig_context_texture_create_from_file(ctx, "app/res/textures/sprite_sheet.png");
 	ImTextureID imgui_tex = igImplVulkan_AddTexture(ctx->nearest_sampler, sprite_sheet->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	struct mg_mgr mgr;
+	bool running = true;
+	mg_mgr_init(&mgr);
+	struct mg_connection* c = mg_connect(&mgr, "tcp://192.168.2.35:1234", ev_handle, &running);
+
+	while (running) {
+		mg_mgr_poll(&mgr, 1000);
+	}
+
+	mg_mgr_free(&mgr);
 
 	int fps = 0;
 	int fps_display = 0;
@@ -35,10 +71,10 @@ void android_main(struct android_app* state) {
 		igShowDemoWindow(NULL);
 		igBegin("tex", NULL, ImGuiWindowFlags_None);
 		igImage(imgui_tex, (ImVec2) { 128 * 4, 128 * 4 }, (ImVec2) { 0, 0 }, (ImVec2) { 1, 1 }, (ImVec4) { 1, 1, 1, 1 }, (ImVec4) { 0, 0, 0, 1 });
-		if (igButton("show keyboard", (ImVec2) { -1,0 })) {
+		if (igButton("show keyboard", (ImVec2) { -1, 0 })) {
 			ig_window_show_keyboard(window);
 		}
-		if (igButton("hide keyboard", (ImVec2) { -1,0 })) {
+		if (igButton("hide keyboard", (ImVec2) { -1, 0 })) {
 			ig_window_hide_keyboard(window);
 		}
 		igEnd();
