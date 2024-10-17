@@ -84,8 +84,6 @@ void handle_app_cmd(struct android_app* app, int32_t app_cmd) {
 		window->dim.x = ANativeWindow_getWidth(app->window);
 		window->dim.y = ANativeWindow_getHeight(app->window);
 		break;
-	case APP_CMD_SAVE_STATE:
-		break;
 	case APP_CMD_INIT_WINDOW:
 		IG_LOG("init, sdk verison %d", app->activity->sdkVersion);
 

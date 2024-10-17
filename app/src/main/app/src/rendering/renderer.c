@@ -93,10 +93,37 @@ void imgui_destroy() {
     igDestroyContext(NULL);
 }
 
-renderer* renderer_create(ig_context* context, ig_window* window) {
+renderer* renderer_create(ig_context* context, ig_window* window, ig_texture* sprite_sheet) {
 	renderer* r = malloc(sizeof(renderer));
 	r->context = context;
+
+	r->global.cam_pos = (ig_vec2) { .x = 0, .y = 0 };
+	r->global.num_lights = 0;
+	memset(r->global.lights, 0, sizeof(r->global.lights));
+	r->global_buffer = ig_context_dbuffer_create(context, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, NULL, sizeof(r->global));
+
+	for (int i = 0; i < context->fif; i++) {
+		vkUpdateDescriptorSets(context->device, 1, &(VkWriteDescriptorSet) {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.pNext = NULL,
+			.dstSet = context->global_set[i],
+			.dstBinding = 1,
+			.dstArrayElement = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.pImageInfo = NULL,
+			.pBufferInfo = &(VkDescriptorBufferInfo) {
+				.buffer = r->global_buffer[i].buffer,
+				.offset = 0,
+				.range = VK_WHOLE_SIZE
+			},
+			.pTexelBufferView = NULL
+		}, 0, NULL);
+	}
+
 	imgui_init(context, window, r);
+	r->sprite_renderer = sprite_renderer_create(context, sprite_sheet, 2048);
+
 	return r;
 }
 
@@ -106,8 +133,18 @@ void renderer_start_imgui_frame(renderer* renderer) {
 	igNewFrame();
 }
 
+void renderer_push_sprite(renderer* renderer, const sprite_instance* sprite_instance) {
+	sprite_renderer_push(renderer->sprite_renderer, sprite_instance);
+}
+
+void renderer_push_light(renderer* renderer, const light* light) {
+	renderer->global.lights[renderer->global.num_lights++] = *light;
+}
+
 void renderer_flush(renderer* renderer, const ig_vec4* clear_color) {
 	_ig_frame* frame = renderer->context->frames + renderer->context->frame_idx;
+	ig_mat4_ortho(&renderer->global.projection, 0, renderer->context->default_frame.resolution.x, renderer->context->default_frame.resolution.y, 0, 1, -1);
+	memcpy(renderer->global_buffer[renderer->context->frame_idx].data, &renderer->global, sizeof(renderer->global));
 
 	vkCmdBeginRenderPass(frame->cmd_buffer, &(VkRenderPassBeginInfo) {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -128,11 +165,16 @@ void renderer_flush(renderer* renderer, const ig_vec4* clear_color) {
 		}
 	}, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdBindVertexBuffers(frame->cmd_buffer, 0, 1, &renderer->context->quad_buffer->buffer, (VkDeviceSize[]) { 0 });
+	sprite_renderer_flush(renderer->sprite_renderer, renderer->context, frame);
 	imgui_render(frame);
 	vkCmdEndRenderPass(frame->cmd_buffer);
+
+	renderer->global.num_lights = 0;
 }
 
 void renderer_destroy(renderer* renderer) {
+	sprite_renderer_destroy(renderer->sprite_renderer, renderer->context);
 	imgui_destroy();
+	ig_context_dbuffer_destroy(renderer->context, renderer->global_buffer);
 	free(renderer);
 }

@@ -12,7 +12,7 @@ static float now_ms(void) {
 void ev_handle(struct mg_connection* c, int ev, void* ev_data) {
 	switch (ev) {
 	case MG_EV_OPEN:
-		*(uint64_t*) c->data = mg_millis() + 1500;
+		*(uint64_t*) c->data = mg_millis() + 5000;
 		break;
 	case MG_EV_POLL:
 		if (mg_millis() > *(uint64_t*) c->data && (c->is_connecting || c->is_resolving)) {
@@ -26,6 +26,9 @@ void ev_handle(struct mg_connection* c, int ev, void* ev_data) {
 		mg_send(c, "HELLO\n", 6);
 		IG_LOG("connection successful, disconnecting.");
 		break;
+	case MG_EV_CLOSE:
+		IG_LOG("connection closed.");
+		break;
 	case MG_EV_ERROR:
 		IG_LOG("error: %s", (char*) ev_data);
 		*(bool*) c->fn_data = false;
@@ -36,8 +39,8 @@ void ev_handle(struct mg_connection* c, int ev, void* ev_data) {
 void android_main(struct android_app* state) {
 	ig_window* window = ig_window_create(state);
 	ig_context* ctx = ig_context_create(window, 1, 1);
-	renderer* renderer = renderer_create(ctx, window);
 	ig_texture* sprite_sheet = ig_context_texture_create_from_file(ctx, "app/res/textures/sprite_sheet.png");
+	renderer* renderer = renderer_create(ctx, window, sprite_sheet);
 	ImTextureID imgui_tex = igImplVulkan_AddTexture(ctx->nearest_sampler, sprite_sheet->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	struct mg_mgr mgr;
@@ -91,6 +94,7 @@ void android_main(struct android_app* state) {
 			ms_start = now_ms();
 		}
 	}
+
 	ig_context_finish(ctx);
 
 	ig_context_texture_destroy(ctx, sprite_sheet);
